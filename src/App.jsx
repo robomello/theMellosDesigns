@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import productsData from './products.json';
-import { Skull, ArrowRight, ShoppingBag, ArrowLeft, Filter, Bug, Ghost } from 'lucide-react';
-import { motion, useSpring, useMotionValue, useMotionTemplate } from 'framer-motion';
+import { Skull, ArrowRight, ShoppingBag, ArrowLeft, Filter, Bug, Ghost, Plus, Minus, X, Menu, ExternalLink, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
 // Remove duplicate products
@@ -30,18 +30,34 @@ function getCategoryForProduct(title) {
 
 const categoriesWithImages = CATEGORIES.map(cat => {
   const product = products.find(p => getCategoryForProduct(p.title) === cat.id);
-  // Default dark image for others
   const defaultImg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><rect width='400' height='400' fill='%23111'/></svg>";
   return {
     ...cat,
     image: product ? product.image_url : defaultImg
   };
-}).filter(c => c.image && c.id !== 'other'); // Only specific animatronics for the visual grid
+}).filter(c => c.image && c.id !== 'other');
+
+// Cart helpers
+function loadCart() {
+  try {
+    const saved = localStorage.getItem('mellos-cart');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(cart) {
+  localStorage.setItem('mellos-cart', JSON.stringify(cart));
+}
+
+function parsePrice(priceStr) {
+  return parseFloat(priceStr.replace('$', ''));
+}
 
 const CreepyCrawlies = () => {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-      {/* The spiders and ghosts scurry across the screen continuously */}
       <motion.div
         animate={{ x: ['-10vw', '110vw'], y: ['20vh', '80vh'] }}
         transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
@@ -70,7 +86,6 @@ const CreepyCrawlies = () => {
       >
         <Ghost size={80} color="white" />
       </motion.div>
-      {/* Some eerie glowing text only visible in the light */}
       <div style={{ position: 'absolute', top: '15%', left: '10%', fontFamily: 'Syncopate', fontSize: '6vw', color: 'rgba(255,51,51,0.3)', transform: 'rotate(-5deg)', whiteSpace: 'nowrap', fontWeight: 'bold' }}>
         YOU CAN'T HIDE
       </div>
@@ -85,16 +100,35 @@ function App() {
   const [scrolled, setScrolled] = useState(false);
   const [currentView, setCurrentView] = useState('home');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [cart, setCart] = useState(loadCart);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [lanternActive, setLanternActive] = useState(false);
+
+  // Persist cart
+  useEffect(() => {
+    saveCart(cart);
+  }, [cart]);
+
+  // Check for success redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      setCurrentView('success');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     let animationFrameId;
     let targetX = 0;
     let targetY = 0;
 
-    // Check if on mobile to enable lantern active instantly if tilt starts
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       setLanternActive(true);
     }
@@ -105,7 +139,6 @@ function App() {
 
     const updateMousePos = () => {
       setMousePos(prev => {
-        // Linear interpolation for smoothing without heavy physics
         const dx = targetX - prev.x;
         const dy = targetY - prev.y;
         return {
@@ -124,15 +157,10 @@ function App() {
       targetY = e.clientY;
     };
 
-    // Track phone gyroscope to allow mobile users to use the lantern
     const handleOrientation = (e) => {
       if (!lanternActive) setLanternActive(true);
       if (e.gamma === null || e.beta === null) return;
-
-      // gamma is left/right tilt (-90 to 90)
       targetX = window.innerWidth / 2 + (e.gamma / 45) * (window.innerWidth / 2);
-
-      // beta is front/back tilt (-180 to 180)
       let tiltY = e.beta;
       if (tiltY < 0) tiltY = 0;
       if (tiltY > 90) tiltY = 90;
@@ -151,9 +179,73 @@ function App() {
     };
   }, []);
 
+  // Cart operations
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.title === product.title);
+      if (existing) {
+        return prev.map(item =>
+          item.product.title === product.title
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (title) => {
+    setCart(prev => prev.filter(item => item.product.title !== title));
+  };
+
+  const updateQuantity = (title, delta) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.title !== title) return item;
+      const newQty = item.quantity + delta;
+      return newQty > 0 ? { ...item, quantity: newQty } : item;
+    }).filter(item => item.quantity > 0));
+  };
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + parsePrice(item.product.price) * item.quantity, 0);
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart.map(item => ({
+            title: item.product.title,
+            price: item.product.price,
+            quantity: item.quantity,
+            image_url: item.product.image_url,
+          }))
+        })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   const goToProducts = (categoryId = 'all') => {
     setActiveCategory(categoryId);
     setCurrentView('products');
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const goToProductDetail = (product) => {
+    setSelectedProduct(product);
+    setCurrentView('product-detail');
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
@@ -178,7 +270,6 @@ function App() {
         <CreepyCrawlies />
       </div>
 
-      {/* Background Grids - CSS Driven for performance */}
       <div className="bg-grid"></div>
 
       {/* HEADER */}
@@ -187,7 +278,7 @@ function App() {
           <div
             className="logo"
             style={{ cursor: 'pointer' }}
-            onClick={() => setCurrentView('home')}
+            onClick={() => { setCurrentView('home'); setMobileMenuOpen(false); }}
           >
             <Skull size={24} color="var(--accent)" />
             MELLO'S.D
@@ -195,12 +286,22 @@ function App() {
 
           <nav className="nav-links">
             <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); goToProducts('all'); }}>All Upgrades</a>
-            <a href="#" className="nav-link">Materials</a>
-            <a href="#" className="nav-link">About</a>
           </nav>
 
+          {/* Mobile hamburger */}
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Menu"
+          >
+            <Menu size={24} />
+          </button>
+
           <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative', cursor: 'pointer' }}>
+            <div
+              style={{ position: 'relative', cursor: 'pointer' }}
+              onClick={() => setCartOpen(true)}
+            >
               <ShoppingBag size={24} style={{ color: 'white' }} />
               <span style={{
                 position: 'absolute', top: -5, right: -5,
@@ -208,19 +309,107 @@ function App() {
                 borderRadius: '50%', width: 16, height: 16,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontWeight: 'bold', border: '2px solid var(--bg-primary)'
-              }}>0</span>
+              }}>{cartCount}</span>
             </div>
           </div>
         </div>
+
+        {/* Mobile menu dropdown */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              className="mobile-menu"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <a href="#" className="mobile-menu-link" onClick={(e) => { e.preventDefault(); goToProducts('all'); }}>All Upgrades</a>
+              {CATEGORIES.filter(c => c.id !== 'other').map(cat => (
+                <a key={cat.id} href="#" className="mobile-menu-link" onClick={(e) => { e.preventDefault(); goToProducts(cat.id); }}>{cat.name}</a>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* MAIN CONTENT VIEW MANAGMENT */}
+      {/* CART DRAWER */}
+      <AnimatePresence>
+        {cartOpen && (
+          <>
+            <motion.div
+              className="cart-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCartOpen(false)}
+            />
+            <motion.div
+              className="cart-drawer"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'tween', duration: 0.3 }}
+            >
+              <div className="cart-header">
+                <h3 style={{ fontFamily: 'Syncopate', fontSize: '1.1rem' }}>YOUR CART</h3>
+                <button className="cart-close" onClick={() => setCartOpen(false)}>
+                  <X size={24} />
+                </button>
+              </div>
+
+              {cart.length === 0 ? (
+                <div className="cart-empty">
+                  <ShoppingBag size={48} style={{ opacity: 0.3 }} />
+                  <p>Your cart is empty</p>
+                </div>
+              ) : (
+                <>
+                  <div className="cart-items">
+                    {cart.map(item => (
+                      <div key={item.product.title} className="cart-item">
+                        <img src={item.product.image_url} alt={item.product.title} className="cart-item-img" />
+                        <div className="cart-item-info">
+                          <p className="cart-item-title">{item.product.title}</p>
+                          <p className="cart-item-price">{item.product.price}</p>
+                          <div className="cart-item-qty">
+                            <button onClick={() => updateQuantity(item.product.title, -1)}><Minus size={14} /></button>
+                            <span>{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.product.title, 1)}><Plus size={14} /></button>
+                            <button className="cart-item-remove" onClick={() => removeFromCart(item.product.title)}>
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="cart-footer">
+                    <div className="cart-total">
+                      <span>Total</span>
+                      <span>${cartTotal.toFixed(2)}</span>
+                    </div>
+                    <button
+                      className="btn-checkout"
+                      onClick={handleCheckout}
+                      disabled={checkoutLoading}
+                    >
+                      {checkoutLoading ? 'Processing...' : 'Checkout'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MAIN CONTENT */}
       {currentView === 'home' ? (
         <main>
           {/* HERO SECTION */}
           <section className="hero container">
             <div className="hero-split">
-              {/* Visuals - Rendered first so they stack on top in Mobile */}
               <div className="hero-visuals">
                 {products.slice(0, 2).map((product, idx) => (
                   <motion.div
@@ -229,7 +418,7 @@ function App() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.1 * idx }}
-                    onClick={() => goToProducts('all')}
+                    onClick={() => goToProductDetail(product)}
                   >
                     <div className="product-image-wrapper">
                       <img src={product.image_url} alt={product.title} className="product-image" loading="lazy" />
@@ -242,16 +431,20 @@ function App() {
                       </div>
                       <div className="product-footer">
                         <span className="product-price" style={{ fontSize: '1rem' }}>{product.price}</span>
-                        <div className="icon-btn" style={{ width: '30px', height: '30px' }}>
-                          <ArrowRight size={14} />
-                        </div>
+                        <button
+                          className="icon-btn add-to-cart-btn"
+                          style={{ width: '30px', height: '30px' }}
+                          onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                          title="Add to cart"
+                        >
+                          <Plus size={14} />
+                        </button>
                       </div>
                     </div>
                   </motion.div>
                 ))}
               </div>
 
-              {/* Text Side */}
               <div className="hero-text">
                 <motion.div
                   className="hero-badge"
@@ -296,7 +489,7 @@ function App() {
             </div>
           </section>
 
-          {/* CONTINUOUS MARQUEE */}
+          {/* MARQUEE */}
           <div className="marquee-container">
             <motion.div
               animate={{ x: [0, -1000] }}
@@ -311,7 +504,7 @@ function App() {
             </motion.div>
           </div>
 
-          {/* ANIMATRONICS / PROP SELECTOR */}
+          {/* PROP SELECTOR */}
           <section className="container" style={{ padding: '100px 0' }}>
             <motion.div
               className="section-title"
@@ -342,7 +535,7 @@ function App() {
             </div>
           </section>
 
-          {/* TOP 3 FEATURED PRODUCTS */}
+          {/* FEATURED PRODUCTS */}
           <section className="products-section container" style={{ paddingTop: '50px' }}>
             <motion.div
               className="section-title"
@@ -364,6 +557,7 @@ function App() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: idx * 0.1 }}
+                  onClick={() => goToProductDetail(product)}
                 >
                   <div className="product-image-wrapper">
                     <img src={product.image_url} alt={product.title} className="product-image" loading="lazy" />
@@ -376,9 +570,13 @@ function App() {
                     </div>
                     <div className="product-footer">
                       <span className="product-price">{product.price}</span>
-                      <div className="icon-btn">
-                        <ArrowRight size={18} />
-                      </div>
+                      <button
+                        className="icon-btn add-to-cart-btn"
+                        onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                        title="Add to cart"
+                      >
+                        <Plus size={18} />
+                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -391,12 +589,69 @@ function App() {
               </button>
             </div>
           </section>
-
         </main>
+
+      ) : currentView === 'product-detail' && selectedProduct ? (
+        /* PRODUCT DETAIL VIEW */
+        <main className="page-container container" style={{ paddingBottom: '100px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3rem' }}>
+            <button
+              onClick={() => setCurrentView('products')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'Syncopate' }}
+            >
+              <ArrowLeft size={20} /> BACK
+            </button>
+          </div>
+
+          <div className="product-detail">
+            <div className="product-detail-image">
+              <img src={selectedProduct.image_url} alt={selectedProduct.title} />
+            </div>
+            <div className="product-detail-info">
+              <h1 className="product-detail-title">{selectedProduct.title}</h1>
+              <p className="product-detail-price">{selectedProduct.price}</p>
+              <p className="product-detail-desc">
+                Premium 3D-printed upgrade made with ultra-durable ASA carbon fiber.
+                Engineered to withstand extreme weather conditions and keep your Halloween display standing strong.
+              </p>
+              <div className="product-detail-actions">
+                <button className="btn-primary" onClick={() => { addToCart(selectedProduct); setCartOpen(true); }}>
+                  <ShoppingBag size={18} />
+                  Add to Cart
+                </button>
+                <a
+                  href={selectedProduct.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-etsy"
+                >
+                  <ExternalLink size={16} />
+                  View on Etsy
+                </a>
+              </div>
+            </div>
+          </div>
+        </main>
+
+      ) : currentView === 'success' ? (
+        /* SUCCESS VIEW */
+        <main className="page-container container" style={{ paddingBottom: '100px' }}>
+          <div className="success-page">
+            <CheckCircle size={64} color="var(--accent)" />
+            <h1>Order Confirmed!</h1>
+            <p>Thank you for your purchase. We'll get your prop upgrades shipped out soon.</p>
+            <button className="btn-primary" onClick={() => { setCart([]); setCurrentView('home'); }}>
+              Continue Shopping
+              <div className="arrow-circle">
+                <ArrowRight size={16} />
+              </div>
+            </button>
+          </div>
+        </main>
+
       ) : (
         /* PRODUCTS ARCHIVE VIEW */
         <main className="page-container container" style={{ paddingBottom: '100px' }}>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3rem' }}>
             <button
               onClick={() => setCurrentView('home')}
@@ -410,7 +665,6 @@ function App() {
             <h1 style={{ fontSize: '3rem' }}>Prop Upgrades</h1>
             <p style={{ color: 'var(--text-muted)' }}>Showing {filteredProducts.length} components.</p>
 
-            {/* Filter Pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
               <button
                 onClick={() => setActiveCategory('all')}
@@ -437,7 +691,8 @@ function App() {
                 className="glass-card"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: Math.min((idx % 8) * 0.05, 0.4) }} /* Faster load for list */
+                transition={{ duration: 0.3, delay: Math.min((idx % 8) * 0.05, 0.4) }}
+                onClick={() => goToProductDetail(product)}
               >
                 <div className="product-image-wrapper">
                   <img src={product.image_url} alt={product.title} className="product-image" loading="lazy" />
@@ -450,9 +705,13 @@ function App() {
                   </div>
                   <div className="product-footer">
                     <span className="product-price">{product.price}</span>
-                    <div className="icon-btn">
-                      <ShoppingBag size={18} />
-                    </div>
+                    <button
+                      className="icon-btn add-to-cart-btn"
+                      onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                      title="Add to cart"
+                    >
+                      <Plus size={18} />
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -475,7 +734,7 @@ function App() {
             <span style={{ fontFamily: 'Syncopate', fontWeight: 700, letterSpacing: '1px' }}>MELLO'S.D</span>
           </div>
           <div style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
-            © {new Date().getFullYear()} Mello's Designs.
+            &copy; {new Date().getFullYear()} Mello's Designs.
           </div>
         </div>
       </footer>

@@ -608,3 +608,340 @@ h6 {
   color: black;
   border-color: white;
 }
+
+/* Mobile Menu Button */
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.mobile-menu {
+  background: rgba(5, 5, 5, 0.98);
+  border-top: 1px solid var(--glass-border);
+  padding: 1rem 5%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.mobile-menu-link {
+  display: block;
+  padding: 0.75rem 0;
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--glass-border);
+  transition: color 0.15s;
+}
+
+.mobile-menu-link:hover {
+  color: white;
+}
+
+/* Cart Overlay & Drawer */
+.cart-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+}
+
+.cart-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #0a0a0c;
+  border-left: 1px solid var(--glass-border);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.cart-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.cart-close:hover {
+  color: white;
+}
+
+.cart-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--text-muted);
+}
+
+.cart-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+}
+
+.cart-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.cart-item-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.cart-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cart-item-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cart-item-price {
+  font-family: 'Syncopate', sans-serif;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
+.cart-item-qty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cart-item-qty button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.cart-item-qty button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cart-item-qty span {
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.cart-item-remove {
+  margin-left: auto;
+  border-color: transparent !important;
+  color: var(--text-muted) !important;
+}
+
+.cart-item-remove:hover {
+  color: var(--accent) !important;
+}
+
+.cart-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Syncopate', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.btn-checkout {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 100px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-family: 'Syncopate', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.btn-checkout:hover {
+  transform: translateY(-2px);
+}
+
+.btn-checkout:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Add to Cart Button */
+.add-to-cart-btn {
+  transition: transform 0.2s, background-color 0.2s, color 0.2s !important;
+}
+
+.add-to-cart-btn:hover {
+  background-color: var(--accent) !important;
+  color: white !important;
+  transform: scale(1.1) !important;
+}
+
+/* Product Detail View */
+.product-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .product-detail {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+.product-detail-image {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: #111;
+}
+
+.product-detail-image img {
+  width: 100%;
+  display: block;
+}
+
+.product-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.product-detail-title {
+  font-family: 'Syncopate', sans-serif;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.product-detail-price {
+  font-family: 'Syncopate', sans-serif;
+  font-weight: 700;
+  font-size: 2rem;
+  color: var(--accent);
+  margin: 0;
+}
+
+.product-detail-desc {
+  color: var(--text-muted);
+  line-height: 1.7;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.product-detail-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-etsy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.2rem 2rem;
+  border-radius: 100px;
+  border: 1px solid var(--glass-border);
+  color: white;
+  font-family: 'Syncopate', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-etsy:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Success Page */
+.success-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 60vh;
+  gap: 1.5rem;
+}
+
+.success-page h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.success-page p {
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  max-width: 500px;
+  line-height: 1.6;
+}
