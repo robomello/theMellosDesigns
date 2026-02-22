@@ -1,11 +1,14 @@
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end();
+  }
+
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
   }
 
   const { items } = req.body;
@@ -15,6 +18,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    const stripe = new Stripe(key, {
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       shipping_address_collection: { allowed_countries: ['US'] },
